@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  
+}
+
+enum SiteTipo {
+  REPETIDORA
+  CONCENTRADORA
+  SITE
+}
+
+enum EnergiaTipo {
+  BIFASICA
+  TRIFASICA
+}
+
+enum MetodoAcesso {
+  CHAVE
+  SEGREDO
+  BRUTF
+}
+
+model Site {
+  id            String      @id @default(cuid())
+  code          String      @unique // sigla
+  name          String
+  address       String
+
+  tipo          SiteTipo
+  energia       EnergiaTipo
+  relogioNumero String?
+
+
+  // novo: como abre o cadeado
+  metodoAcesso  MetodoAcesso
+
+  // extras (só usa dependendo do metodoAcesso)
+  ntpCode       String?
+  segredoNumero String?
+
+  cabmil        Boolean     @default(false)
+  bateria       Boolean     @default(false)
+  bateriaQty    Int         @default(0)
+
+  gsm           Boolean     @default(false)
+  has5g         Boolean     @default(false)
+  observation   String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
