@@ -1,34 +1,47 @@
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma/prisma";
 
 // GET /api/sites/:id
-export async function GET(req, ctx) {
-  const { id } =  ctx.params; // ✅ aqui
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
 
   if (!id) {
-    return NextResponse.json({ error: "ID ausente na rota" }, { status: 400 });
+    return NextResponse.json(
+      { error: "ID ausente na rota" },
+      { status: 400 }
+    );
   }
 
   const site = await prisma.site.findUnique({
-    where: { id }, // id é string (cuid)
+    where: { id },
   });
 
   if (!site) {
-    return NextResponse.json({ error: "Site não encontrado" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Site não encontrado" },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json(site);
 }
 
 // PUT /api/sites/:id
-export async function PUT(req, ctx) {
-  const { id } = await ctx.params; // ✅ aqui
+export async function PUT(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
   const body = await req.json();
 
   if (!id) {
-    return NextResponse.json({ error: "ID ausente na rota" }, { status: 400 });
+    return NextResponse.json(
+      { error: "ID ausente na rota" },
+      { status: 400 }
+    );
   }
 
   const updated = await prisma.site.update({
