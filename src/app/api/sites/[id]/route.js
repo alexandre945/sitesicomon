@@ -5,7 +5,7 @@ import { prisma } from "../../../../lib/prisma/prisma";
 
 // GET /api/sites/:id
 export async function GET(req, ctx) {
-  const { id } = await ctx.params; // ✅ aqui
+  const { id } =  ctx.params; // ✅ aqui
 
   if (!id) {
     return NextResponse.json({ error: "ID ausente na rota" }, { status: 400 });
