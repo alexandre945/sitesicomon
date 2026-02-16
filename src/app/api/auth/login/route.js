@@ -14,7 +14,9 @@ export async function POST(req) {
     );
   }
 
-  const token = createSession({ ttlSeconds: 60 * 60 * 12 }); // 12h
+  // const token = createSession({ ttlSeconds: 60 * 60 * 12 }); // 12h
+  const token = createSession({ ttlSeconds: 10 }); // 10 segundos
+
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(sessionCookieName, token, {
