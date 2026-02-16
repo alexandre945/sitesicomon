@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma/prisma";
 
 // GET /api/sites/:id
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req, { params }) {
   const { id } = params;
 
   if (!id) {
@@ -30,10 +27,7 @@ export async function GET(
 }
 
 // PUT /api/sites/:id
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req, { params }) {
   const { id } = params;
   const body = await req.json();
 
