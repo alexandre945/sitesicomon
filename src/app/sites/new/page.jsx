@@ -1,376 +1,534 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const empty = {
+const inicial = {
   code: "",
   name: "",
   address: "",
+  tipo: "REPETIDORA",
+  energia: "BIFASICA",
   relogioNumero: "",
-
-  kind: "REPETIDORA", // REPETIDORA | CONCENTRADORA | SITE
-  powerType: "BIFASICA", // BIFASICA | TRIFASICA
-
-  lockMethod: "CHAVE", // CHAVE | SEGREDO | BRUTF
+  metodoAcesso: "CHAVE",
   segredoNumero: "",
   ntpCode: "",
-
-  hasCabmil: false,
-  hasBattery: false,
-  batteryQty: 0,
-  hasGsm: false,
+  acessoGabinetes: "",
+  condicaoEstrada: "",
+  gsm: false,
+  has3g: false,
+  has4g: false,
   has5g: false,
+  bateria: false,
+  bateriaQty: 0,
+  tipoBateria: "",
+  tecnicoCadastro: "",
   observation: "",
 };
 
+const campo =
+  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+
+const rotulo = "mb-1.5 block text-sm font-semibold text-slate-700";
+
+function Secao({ numero, titulo, descricao, children }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-bold text-white">
+            {numero}
+          </span>
+          <div>
+            <h2 className="font-bold text-slate-900">{titulo}</h2>
+            <p className="text-xs text-slate-500">{descricao}</p>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-4 p-5">{children}</div>
+    </section>
+  );
+}
+
 export default function NewSitePage() {
   const router = useRouter();
-  const [form, setForm] = useState(empty);
+  const [form, setForm] = useState(inicial);
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
+  const [erro, setErro] = useState("");
 
-  // theme (rápido, sem lib)
-  const [theme, setTheme] = useState("dark"); // "dark" | "light"
-
-  useEffect(() => {
-    const saved = localStorage.getItem("theme") || "dark";
-    setTheme(saved);
-    document.documentElement.classList.toggle("dark", saved === "dark");
-  }, []);
-
-  function setField(k, v) {
-    setForm((p) => ({ ...p, [k]: v }));
+  function alterar(nome, valor) {
+    setForm((anterior) => ({ ...anterior, [nome]: valor }));
   }
 
-  function normalizeCode(v) {
-    return v.toUpperCase().replace(/\s+/g, "");
-  }
+  async function salvar(evento) {
+    evento.preventDefault();
+    if (saving) return;
 
-  async function onSubmit(e) {
-    e.preventDefault();
-    setErr("");
+    setErro("");
 
-    const code = normalizeCode(form.code);
+    const code = form.code.toUpperCase().replace(/\s+/g, "");
     const name = form.name.trim();
+    const tecnicoCadastro = form.tecnicoCadastro.trim();
 
-    if (!code) return setErr("Informe a sigla.");
-    if (!name) return setErr("Informe o nome.");
-
-    // valida bateria
-    const batteryQty = form.hasBattery ? Number(form.batteryQty || 0) : 0;
-    if (form.hasBattery && batteryQty <= 0) {
-      return setErr("Se tem bateria, informe a quantidade (mín. 1).");
+    if (!code) return setErro("Informe a sigla do site.");
+    if (!name) return setErro("Informe o nome do site.");
+    if (!tecnicoCadastro) {
+      return setErro("Informe o nome do técnico responsável.");
     }
 
-    // valida método do cadeado
-    const lockMethod = (form.lockMethod || "").toUpperCase();
-
-    if (lockMethod === "SEGREDO") {
-      const seg = (form.segredoNumero || "").trim();
-      if (!seg) return setErr("Informe o número do segredo.");
+    if (
+      form.metodoAcesso === "SEGREDO" &&
+      !form.segredoNumero.trim()
+    ) {
+      return setErro("Informe o número do segredo.");
     }
 
-    if (lockMethod === "BRUTF") {
-      const ntp = (form.ntpCode || "").trim();
-      if (!ntp) return setErr("Informe o código NTP.");
+    if (
+      form.metodoAcesso === "BRUTF" &&
+      !form.ntpCode.trim()
+    ) {
+      return setErro("Informe o código NTP do Bluetooth.");
+    }
+
+    if (form.bateria && !form.tipoBateria) {
+      return setErro("Selecione o tipo de bateria.");
+    }
+
+    if (
+      form.bateria &&
+      (!Number.isInteger(Number(form.bateriaQty)) ||
+        Number(form.bateriaQty) < 1)
+    ) {
+      return setErro("Informe a quantidade de baterias.");
     }
 
     setSaving(true);
 
     try {
       const payload = {
+        ...form,
         code,
         name,
-        address: form.address.trim(),
-        relogioNumero: form.relogioNumero ? form.relogioNumero.trim() : null,
-
-
-        // enums do banco
-        tipo: form.kind,
-        energia: form.powerType,
-        metodoAcesso: form.lockMethod,
-
-        // campos extras (só preenche quando necessário)
+        tecnicoCadastro,
+        bateriaQty: form.bateria ? Number(form.bateriaQty) : 0,
+        tipoBateria: form.bateria ? form.tipoBateria : null,
+        condicaoEstrada: form.condicaoEstrada || null,
+        relogioNumero: form.relogioNumero.trim() || null,
         segredoNumero:
-          lockMethod === "SEGREDO" ? form.segredoNumero.trim() : null,
-        ntpCode: lockMethod === "BRUTF" ? form.ntpCode.trim() : null,
-
-        cabmil: !!form.hasCabmil,
-        bateria: !!form.hasBattery,
-        bateriaQty: batteryQty,
-
-        gsm: !!form.hasGsm,
-        has5g: !!form.has5g,
-        observation: form.observation.trim() || null,
+          form.metodoAcesso === "SEGREDO"
+            ? form.segredoNumero.trim()
+            : null,
+        ntpCode:
+          form.metodoAcesso === "BRUTF"
+            ? form.ntpCode.trim()
+            : null,
       };
 
-      const res = await fetch("/api/sites", {
+      const resposta = await fetch("/api/sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || "Falha ao salvar no banco.");
+      const dados = await resposta.json().catch(() => ({}));
+
+      if (!resposta.ok) {
+        throw new Error(dados.error || "Erro ao cadastrar site.");
       }
 
-      router.replace("/");
-    } catch (e2) {
-      setErr(e2?.message || "Erro inesperado.");
+      router.replace("/home");
+      router.refresh();
+    } catch (error) {
+      setErro(error.message || "Erro inesperado.");
+    } finally {
       setSaving(false);
     }
   }
 
-  // cores (light/dark) com classes do Tailwind
-  const pageBg = "bg-zinc-100 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100";
-  const cardBg =
-    "border border-zinc-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/30";
-
-  const inputCls =
-    "mt-1 w-full rounded-xl border px-3 py-2 outline-none " +
-    "bg-white text-black border-black focus:border-black " +
-    "dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-800 dark:focus:border-zinc-600";
-
-  const labelCls = "text-sm font-medium text-black dark:text-zinc-300";
-  const helpCls = "text-sm text-zinc-500 dark:text-zinc-400";
-
-  const selectCls =
-    "mt-1 w-full rounded-xl border px-3 py-2 outline-none " +
-    "bg-white text-black border-black " +
-    "focus:border-black focus:ring-0 " +
-    "dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-800";
-
-  const smallInputCls =
-    "mt-1 w-full rounded-xl border px-3 py-2 outline-none " +
-    "bg-white text-black border-black focus:border-black " +
-    "dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-800 dark:focus:border-zinc-600";
+  const tecnologias = [
+    ["gsm", "GSM"],
+    ["has3g", "3G"],
+    ["has4g", "4G"],
+    ["has5g", "5G"],
+  ];
 
   return (
-    <div className={`min-h-screen p-4 ${pageBg}`}>
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold">Novo site</h1>
-            <p className={`mt-1 ${helpCls}`}>Cadastre a torre para consulta rápida.</p>
-          </div>
+    <main className="min-h-screen bg-slate-100 pb-12">
+        
+<header
+  style={{
+    background: "linear-gradient(120deg, #020617, #1e3a8a, #1d4ed8)",
+    color: "#ffffff",
+  }}
+  className="px-4 py-7 shadow-lg"
+>
+  <div className="mx-auto max-w-3xl">
+    <button
+      type="button"
+      onClick={() => router.push("/home")}
+      style={{
+        color: "#ffffff",
+        backgroundColor: "#1e40af",
+        border: "1px solid #93c5fd",
+      }}
+      className="mb-5 rounded-lg px-4 py-2 text-sm font-semibold"
+    >
+      ← Voltar para sites
+    </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-xl border px-3 py-2 text-sm hover:opacity-90 border-zinc-200 dark:border-zinc-800"
-            >
-              Voltar
-            </button>
-          </div>
-        </div>
+    <h1
+      style={{ color: "#ffffff" }}
+      className="text-2xl font-extrabold sm:text-3xl"
+    >
+      Cadastrar novo site
+    </h1>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div className={`rounded-2xl p-4 space-y-4 ${cardBg}`}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Sigla</label>
-                <input
-                  value={form.code}
-                  onChange={(e) => setField("code", e.target.value)}
-                  placeholder="Ex: SP001"
-                  className={inputCls}
-                />
-              </div>
+    <p
+      style={{ color: "#dbeafe" }}
+      className="mt-2 text-sm"
+    >
+      Central de Sites ICOMON • Informações técnicas
+    </p>
+  </div>
+</header>
 
-              <div>
-                <label className={labelCls}>Nome</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setField("name", e.target.value)}
-                  placeholder="Ex: Torre Centro"
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
+      <form
+        onSubmit={salvar}
+        className="mx-auto mt-6 max-w-3xl space-y-5 px-4"
+      >
+        <Secao
+          numero="1"
+          titulo="Identificação"
+          descricao="Informações gerais e localização"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Endereço</label>
+              <label className={rotulo}>Sigla do site *</label>
               <input
-                value={form.address}
-                onChange={(e) => setField("address", e.target.value)}
-                placeholder="Rua, número, bairro..."
-                className={inputCls}
+                required
+                className={campo}
+                placeholder="Ex.: SP001"
+                value={form.code}
+                onChange={(e) => alterar("code", e.target.value)}
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Tipo do site</label>
-                <select
-                  value={form.kind}
-                  onChange={(e) => setField("kind", e.target.value)}
-                  className={selectCls}
+            <div>
+              <label className={rotulo}>Nome do site *</label>
+              <input
+                required
+                className={campo}
+                placeholder="Ex.: Torre Centro"
+                value={form.name}
+                onChange={(e) => alterar("name", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={rotulo}>Endereço / localização</label>
+            <input
+              className={campo}
+              placeholder="Rua, bairro, cidade ou referência"
+              value={form.address}
+              onChange={(e) => alterar("address", e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={rotulo}>Tipo do site</label>
+              <select
+                className={campo}
+                value={form.tipo}
+                onChange={(e) => alterar("tipo", e.target.value)}
+              >
+                <option value="REPETIDORA">Repetidora</option>
+                <option value="CONCENTRADORA">Concentradora</option>
+                <option value="SITE">Site</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={rotulo}>Tipo de energia</label>
+              <select
+                className={campo}
+                value={form.energia}
+                onChange={(e) => alterar("energia", e.target.value)}
+              >
+                <option value="BIFASICA">Bifásica</option>
+                <option value="TRIFASICA">Trifásica</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className={rotulo}>Número do medidor</label>
+            <input
+              className={campo}
+              placeholder="Número do relógio de energia"
+              value={form.relogioNumero}
+              onChange={(e) =>
+                alterar("relogioNumero", e.target.value)
+              }
+            />
+          </div>
+        </Secao>
+
+        <Secao
+          numero="2"
+          titulo="Acesso ao site"
+          descricao="Portão, cadeado e gabinetes"
+        >
+          <div>
+            <label className={rotulo}>Acesso ao portão</label>
+            <select
+              className={campo}
+              value={form.metodoAcesso}
+              onChange={(e) => {
+                const metodoAcesso = e.target.value;
+                setForm((anterior) => ({
+                  ...anterior,
+                  metodoAcesso,
+                  segredoNumero:
+                    metodoAcesso === "SEGREDO"
+                      ? anterior.segredoNumero
+                      : "",
+                  ntpCode:
+                    metodoAcesso === "BRUTF"
+                      ? anterior.ntpCode
+                      : "",
+                }));
+              }}
+            >
+              <option value="CHAVE">Chave padrão</option>
+              <option value="SEGREDO">Segredo</option>
+              <option value="BRUTF">Bluetooth</option>
+              <option value="CABMIL">CABMIL</option>
+            </select>
+          </div>
+
+          {form.metodoAcesso === "SEGREDO" && (
+            <div>
+              <label className={rotulo}>Número do segredo *</label>
+              <input
+                required
+                className={campo}
+                value={form.segredoNumero}
+                onChange={(e) =>
+                  alterar("segredoNumero", e.target.value)
+                }
+                placeholder="Informe o segredo"
+              />
+            </div>
+          )}
+
+          {form.metodoAcesso === "BRUTF" && (
+            <div>
+              <label className={rotulo}>Código NTP *</label>
+              <input
+                required
+                className={campo}
+                value={form.ntpCode}
+                onChange={(e) => alterar("ntpCode", e.target.value)}
+                placeholder="Código de acesso Bluetooth"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className={rotulo}>Acesso aos gabinetes</label>
+            <textarea
+              rows={3}
+              className={campo}
+              placeholder="Descreva como os gabinetes são acessados"
+              value={form.acessoGabinetes}
+              onChange={(e) =>
+                alterar("acessoGabinetes", e.target.value)
+              }
+            />
+          </div>
+        </Secao>
+
+        <Secao
+          numero="3"
+          titulo="Condições da estrada"
+          descricao="Qual veículo consegue chegar ao site?"
+        >
+          <div>
+            <label className={rotulo}>Condição de acesso</label>
+            <select
+              className={campo}
+              value={form.condicaoEstrada}
+              onChange={(e) =>
+                alterar("condicaoEstrada", e.target.value)
+              }
+            >
+              <option value="">Não informado</option>
+              <option value="VEICULO_PEQUENO">
+                Acesso com veículo pequeno
+              </option>
+              <option value="SOMENTE_4X4">
+                Necessário veículo 4x4
+              </option>
+              <option value="INTRANSITAVEL">
+                Estrada intransitável
+              </option>
+            </select>
+          </div>
+        </Secao>
+
+        <Secao
+          numero="4"
+          titulo="Tecnologias e baterias"
+          descricao="Redes disponíveis e banco de baterias"
+        >
+          <div>
+            <label className={rotulo}>Tecnologias disponíveis</label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {tecnologias.map(([chave, nome]) => (
+                <label
+                  key={chave}
+                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border p-4 text-sm font-bold transition ${
+                    form[chave]
+                      ? "border-blue-600 bg-blue-50 text-blue-800"
+                      : "border-slate-200 bg-white text-slate-600"
+                  }`}
                 >
-                  <option value="REPETIDORA">Repetidora</option>
-                  <option value="CONCENTRADORA">Concentradora</option>
-                  <option value="SITE">Site</option>
+                  <input
+                    type="checkbox"
+                    checked={form[chave]}
+                    onChange={(e) =>
+                      alterar(chave, e.target.checked)
+                    }
+                    className="accent-blue-600"
+                  />
+                  {nome}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4">
+            <label className="flex cursor-pointer items-center gap-3 font-semibold text-slate-800">
+              <input
+                type="checkbox"
+                checked={form.bateria}
+                onChange={(e) => {
+                  const bateria = e.target.checked;
+                  setForm((anterior) => ({
+                    ...anterior,
+                    bateria,
+                    bateriaQty: bateria
+                      ? anterior.bateriaQty || 1
+                      : 0,
+                    tipoBateria: bateria
+                      ? anterior.tipoBateria
+                      : "",
+                  }));
+                }}
+                className="h-5 w-5 accent-blue-600"
+              />
+              Possui banco de baterias
+            </label>
+          </div>
+
+          {form.bateria && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className={rotulo}>Tipo de bateria *</label>
+                <select
+                  required
+                  className={campo}
+                  value={form.tipoBateria}
+                  onChange={(e) =>
+                    alterar("tipoBateria", e.target.value)
+                  }
+                >
+                  <option value="">Selecione</option>
+                  <option value="LITIO">Lítio</option>
+                  <option value="CHUMBO_ACIDO">
+                    Chumbo-ácido / VRLA
+                  </option>
+                  <option value="OUTRA">Outra</option>
                 </select>
               </div>
 
               <div>
-                <label className={labelCls}>Energia</label>
-                <select
-                  value={form.powerType}
-                  onChange={(e) => setField("powerType", e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="BIFASICA">Bifásica</option>
-                  <option value="TRIFASICA">Trifásica</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Nº do relógio</label>
-                <input
-                  value={form.relogioNumero}
-                  onChange={(e) => setField("relogioNumero", e.target.value)}
-                  placeholder="Ex: 123456"
-                  className={inputCls}
-                />
-              </div>
-
-            </div>
-
-            {/* CADEADO / MÉTODO */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Cadeado (método)</label>
-                <select
-                  value={form.lockMethod}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setField("lockMethod", v);
-
-                    // limpa campos extras quando troca método
-                    if (v !== "SEGREDO") setField("segredoNumero", "");
-                    if (v !== "BRUTF") setField("ntpCode", "");
-                  }}
-                  className={selectCls}
-                >
-                  <option value="CHAVE">Chave</option>
-                  <option value="SEGREDO">Segredo</option>
-                  <option value="BRUTF">BRUTF</option>
-                </select>
-              </div>
-
-              {/* Campo condicional */}
-              {form.lockMethod === "SEGREDO" ? (
-                <div>
-                  <label className={labelCls}>Número do segredo</label>
-                  <input
-                    value={form.segredoNumero}
-                    onChange={(e) => setField("segredoNumero", e.target.value)}
-                    placeholder="Ex: 1234"
-                    className={smallInputCls}
-                  />
-                </div>
-              ) : form.lockMethod === "BRUTF" ? (
-                <div>
-                  <label className={labelCls}>Código NTP</label>
-                  <input
-                    value={form.ntpCode}
-                    onChange={(e) => setField("ntpCode", e.target.value)}
-                    placeholder="Ex: NTP-001"
-                    className={smallInputCls}
-                  />
-                </div>
-              ) : (
-                <div className="sm:flex sm:items-end">
-                  {/* <div className={helpCls}>Sem campo extra para chave.</div> */}
-                </div>
-              )}
-            </div>
-
-            {/* CHECKS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-end gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.hasCabmil}
-                    onChange={(e) => setField("hasCabmil", e.target.checked)}
-                  />
-                  Cabmil
-                </label>
-
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.hasGsm}
-                    onChange={(e) => setField("hasGsm", e.target.checked)}
-                  />
-                  GSM
-                </label>
-
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.has5g}
-                    onChange={(e) => setField("has5g", e.target.checked)}
-                  />
-                  5G
-                </label>
-              </div>
-            </div>
-
-            {/* BATERIA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.hasBattery}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setField("hasBattery", checked);
-                    if (!checked) setField("batteryQty", 0);
-                  }}
-                />
-                Possui bateria
-              </label>
-
-              <div>
-                <label className={labelCls}>Qtd baterias</label>
+                <label className={rotulo}>Quantidade *</label>
                 <input
                   type="number"
-                  min={0}
-                  value={form.hasBattery ? form.batteryQty : 0}
-                  disabled={!form.hasBattery}
-                  onChange={(e) => setField("batteryQty", Number(e.target.value))}
-                  className={`${inputCls} disabled:opacity-50`}
+                  min="1"
+                  step="1"
+                  required
+                  className={campo}
+                  value={form.bateriaQty}
+                  onChange={(e) =>
+                    alterar("bateriaQty", e.target.value)
+                  }
                 />
               </div>
             </div>
+          )}
+        </Secao>
 
-            <div>
-              <label className={labelCls}>Observação</label>
-              <textarea
-                rows={3}
-                value={form.observation}
-                onChange={(e) => setField("observation", e.target.value)}
-                placeholder="Ex: acesso difícil em dias de chuva..."
-                className={inputCls}
-              />
-            </div>
+        <Secao
+          numero="5"
+          titulo="Responsável e observações"
+          descricao="Identificação de quem está cadastrando"
+        >
+          <div>
+            <label className={rotulo}>
+              Nome do técnico responsável *
+            </label>
+            <input
+              required
+              className={campo}
+              placeholder="Nome do técnico"
+              value={form.tecnicoCadastro}
+              onChange={(e) =>
+                alterar("tecnicoCadastro", e.target.value)
+              }
+            />
           </div>
 
-          {err ? <div className="text-sm text-red-500">{err}</div> : null}
+          <div>
+            <label className={rotulo}>Observações gerais</label>
+            <textarea
+              rows={4}
+              className={campo}
+              placeholder="Informações adicionais sobre o site"
+              value={form.observation}
+              onChange={(e) =>
+                alterar("observation", e.target.value)
+              }
+            />
+          </div>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full rounded-xl bg-zinc-950 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-950 py-2 font-medium disabled:opacity-60"
+          <p className="text-xs text-slate-500">
+            A data e a hora do cadastro serão registradas
+            automaticamente.
+          </p>
+        </Secao>
+
+        {erro && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700"
           >
-            {saving ? "Salvando..." : "Salvar site"}
-          </button>
-        </form>
-      </div>
-    </div>
+            {erro}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full rounded-2xl bg-blue-700 px-6 py-4 text-base font-bold text-white shadow-lg transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Salvando site..." : "Salvar cadastro do site"}
+        </button>
+      </form>
+    </main>
   );
 }

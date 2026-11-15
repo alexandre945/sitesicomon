@@ -3,13 +3,13 @@
 
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 enum SiteTipo {
@@ -27,34 +27,89 @@ enum MetodoAcesso {
   CHAVE
   SEGREDO
   BRUTF
+  CABMIL
+}
+
+enum CondicaoEstrada {
+  VEICULO_PEQUENO
+  SOMENTE_4X4
+  INTRANSITAVEL
+}
+
+enum TipoBateria {
+  LITIO
+  CHUMBO_ACIDO
+  OUTRA
 }
 
 model Site {
-  id            String      @id @default(cuid())
-  code          String      @unique // sigla
+  id            String       @id @default(cuid())
+  code          String       @unique
   name          String
   address       String
 
+  // Informações existentes
   tipo          SiteTipo
   energia       EnergiaTipo
   relogioNumero String?
 
-
-  // novo: como abre o cadeado
   metodoAcesso  MetodoAcesso
-
-  // extras (só usa dependendo do metodoAcesso)
   ntpCode       String?
   segredoNumero String?
 
-  cabmil        Boolean     @default(false)
-  bateria       Boolean     @default(false)
-  bateriaQty    Int         @default(0)
+  // Mantido para compatibilidade com cadastros antigos
+  cabmil        Boolean      @default(false)
 
-  gsm           Boolean     @default(false)
-  has5g         Boolean     @default(false)
+  bateria       Boolean      @default(false)
+  bateriaQty    Int          @default(0)
+  gsm           Boolean      @default(false)
+  has5g         Boolean      @default(false)
   observation   String?
 
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  // Novas tecnologias
+  has3g         Boolean      @default(false)
+  has4g         Boolean      @default(false)
+
+  // Informações de bateria
+  tipoBateria   TipoBateria?
+
+  // Acesso e estrada
+  acessoGabinetes String?
+  condicaoEstrada CondicaoEstrada?
+
+  // Técnico responsável
+  tecnicoCadastro    String?
+  tecnicoAtualizacao String?
+  ultimaVerificacao  DateTime?
+
+  // Fotos e histórico
+  fotos         SiteFoto[]
+  historico     SiteHistorico[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model SiteFoto {
+  id          String   @id @default(cuid())
+  siteId      String
+  storagePath String
+  descricao   String?
+  createdAt   DateTime @default(now())
+
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+}
+
+model SiteHistorico {
+  id          String   @id @default(cuid())
+  siteId      String
+  tecnico     String
+  descricao   String
+  createdAt   DateTime @default(now())
+
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
 }
